@@ -28,7 +28,68 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    init_database()
+    """Initialize database on startup"""
+    try:
+        init_database()
+        print("✅ Database initialized on startup")
+    except Exception as e:
+        print(f"⚠️  Database initialization warning: {e}")
+
+# ==================== Health Check & Init Endpoints ====================
+
+@app.get("/")
+async def root():
+    """Root endpoint - health check"""
+    return {
+        "message": "Lab Exam Scheduler API",
+        "status": "running",
+        "version": "1.0.0"
+    }
+
+@app.get("/api/init-db")
+async def init_db_endpoint():
+    """
+    FREE alternative to Shell: Initialize database via HTTP
+    Visit this URL in browser after deployment to create tables
+    Example: https://your-app.onrender.com/api/init-db
+    """
+    try:
+        init_database()
+        return {
+            "success": True,
+            "message": "✅ Database tables created successfully!",
+            "note": "You can now upload students and exams"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"❌ Error: {str(e)}"
+        }
+
+@app.get("/api/health")
+async def health_check():
+    """Check if database is accessible"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM students")
+            student_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM exams")
+            exam_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM schedules")
+            schedule_count = cursor.fetchone()[0]
+            
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "data": {
+                "students": student_count,
+                "exams": exam_count,
+                "schedules": schedule_count
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 # ==================== Student Endpoints ====================
 
